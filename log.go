@@ -1,7 +1,6 @@
 package glog
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"runtime"
