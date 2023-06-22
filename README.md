@@ -1,10 +1,11 @@
 # 简介
 
-作者：京城郭少
+* glog：**一个开箱即用的go日志库**
+* 作者：**京城郭少**
 
 # 关于项目
 
-* 依赖logrus和file-rotatelogs
+* 依赖logrus和rotatelogs
 
 # 特点
 
