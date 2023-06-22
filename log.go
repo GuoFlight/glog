@@ -1,14 +1,13 @@
 package glog
 
 import (
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"github.com/rifflock/lfshook"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path"
 	"runtime"
 	"time"
-
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
-	"github.com/rifflock/lfshook"
-	"github.com/sirupsen/logrus"
 )
 
 func NewLogger(logDir, logLevel string, AllLevelReportCaller bool, logFileCount uint) (*logrus.Logger, error) {
@@ -174,12 +173,24 @@ func (hook *PrintFileAndNumHook) Levels() []logrus.Level {
 
 //得到日志切割的输出对象
 func GetWriter(pathLogFile string, logFileCount uint) (*rotatelogs.RotateLogs, error) {
-	writer, err := rotatelogs.New(
-		pathLogFile+".%Y%m%d%H",                                 //日志文件后缀：年月日时
-		rotatelogs.WithLinkName(pathLogFile),                    //为当前正在输出的日志文件建立软连接
-		rotatelogs.WithRotationCount(logFileCount),              //日志文件保存的个数(包括当前正在输出的日志)
-		rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), //设置日志分割的时间(隔多久分割一次)
-	)
+	var writer *rotatelogs.RotateLogs
+	var err error
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		writer, err = rotatelogs.New(
+			pathLogFile+".%Y%m%d%H",                                 //日志文件后缀：年月日时
+			rotatelogs.WithLinkName(pathLogFile),                    //为当前正在输出的日志文件建立软连接
+			rotatelogs.WithRotationCount(logFileCount),              //日志文件保存的个数(包括当前正在输出的日志)
+			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), //设置日志分割的时间(隔多久分割一次)
+		)
+	} else if runtime.GOOS == "windows" {
+		writer, err = rotatelogs.New(
+			pathLogFile+".%Y%m%d%H", //日志文件后缀：年月日时
+			//rotatelogs.WithLinkName(pathLogFile),                    //rotatelogs对win10支持不友好，创建软链接会报错
+			rotatelogs.WithRotationCount(logFileCount),              //日志文件保存的个数(包括当前正在输出的日志)
+			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), //设置日志分割的时间(隔多久分割一次)
+		)
+	}
+
 	if err != nil {
 		return nil, err
 	}
