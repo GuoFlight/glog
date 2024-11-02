@@ -6,3 +6,5 @@ example/.idea
 example/.DS_Store
 example/logs
 example/**/logs
+
+test.go

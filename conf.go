@@ -6,7 +6,7 @@ type Conf struct {
 	LogDir            string
 	LogLevel          LogLevel
 	LogFileCount      uint
-	IsStdoutPrint     bool //是否将日志输出到标准输出
+	IsStdoutPrint     bool // 是否将日志输出到标准输出
 	CallerPrintLevels []LogLevel
 }
 

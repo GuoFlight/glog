@@ -4,7 +4,7 @@ import (
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
-	"os"
+	"io"
 	"path"
 	"runtime"
 	"time"
@@ -13,33 +13,29 @@ import (
 func NewLogger(logDir, logLevel string, AllLevelReportCaller bool, logFileCount uint) (*logrus.Logger, error) {
 	Logger := logrus.New()
 
-	//设置日志级别
+	// 设置日志级别
 	logLevelLogrus, err := logrus.ParseLevel(logLevel)
 	if err != nil {
 		return nil, err
 	}
 	Logger.SetLevel(logLevelLogrus)
 
-	//输出Caller
+	// 输出Caller
 	if AllLevelReportCaller {
-		//所有日志等级输出Caller
+		// 所有日志等级输出Caller
 		Logger.SetReportCaller(true)
 	} else {
-		//指定日志等级输出Caller
+		// 指定日志等级输出Caller
 		var printFileAndNumHook PrintFileAndNumHook
 		Logger.AddHook(&printFileAndNumHook)
 	}
 
-	//取消日志标准输出(终端输出)
+	// 取消日志标准输出(终端输出)
 	if logLevelLogrus != logrus.DebugLevel {
-		nullFile, err := os.OpenFile(os.DevNull, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-		if err != nil {
-			return nil, err
-		}
-		Logger.SetOutput(nullFile) //将日志输出到此文件
+		Logger.SetOutput(io.Discard) // 将日志输出到此文件
 	}
 
-	//多文件输出+日志切割
+	// 多文件输出+日志切割
 	logFileTrace, err := GetWriter(path.Join(logDir, "TRACE.log"), logFileCount)
 	if err != nil {
 		return nil, err
@@ -79,7 +75,7 @@ func NewLogger(logDir, logLevel string, AllLevelReportCaller bool, logFileCount 
 	}
 	Logger.AddHook(lfshook.NewHook(
 		pathMap,
-		&logrus.TextFormatter{}, //普通文本模式
+		&logrus.TextFormatter{}, // 普通文本模式
 	))
 
 	return Logger, nil
@@ -87,10 +83,10 @@ func NewLogger(logDir, logLevel string, AllLevelReportCaller bool, logFileCount 
 func NewLoggerWithConf(conf Conf) (*logrus.Logger, error) {
 	Logger := logrus.New()
 
-	//设置日志级别
+	// 设置日志级别
 	Logger.SetLevel(logrus.Level(conf.LogLevel))
 
-	//指定日志等级输出Caller
+	// 指定日志等级输出Caller
 	var printFileAndNumHook PrintFileAndNumHook
 	var levels []logrus.Level
 	for _, v := range conf.CallerPrintLevels {
@@ -99,16 +95,12 @@ func NewLoggerWithConf(conf Conf) (*logrus.Logger, error) {
 	printFileAndNumHook.CallerPrintLevels = levels
 	Logger.AddHook(&printFileAndNumHook)
 
-	//取消日志标准输出(终端输出)
+	// 取消日志标准输出(终端输出)
 	if !conf.IsStdoutPrint {
-		nullFile, err := os.OpenFile(os.DevNull, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-		if err != nil {
-			return nil, err
-		}
-		Logger.SetOutput(nullFile) //将日志输出到此文件
+		Logger.SetOutput(io.Discard) // 将日志输出到此文件
 	}
 
-	//多文件输出+日志切割
+	// 多文件输出+日志切割
 	logFileTrace, err := GetWriter(path.Join(conf.LogDir, "TRACE.log"), conf.LogFileCount)
 	if err != nil {
 		return nil, err
@@ -148,12 +140,12 @@ func NewLoggerWithConf(conf Conf) (*logrus.Logger, error) {
 	}
 	Logger.AddHook(lfshook.NewHook(
 		pathMap,
-		&logrus.TextFormatter{}, //普通文本模式
+		&logrus.TextFormatter{}, // 普通文本模式
 	))
 	return Logger, nil
 }
 
-//指定日志等级输出文件名+行号的hook
+// PrintFileAndNumHook 指定日志等级输出文件名+行号的hook
 type PrintFileAndNumHook struct {
 	CallerPrintLevels []logrus.Level
 }
@@ -168,26 +160,26 @@ func (hook *PrintFileAndNumHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 func (hook *PrintFileAndNumHook) Levels() []logrus.Level {
-	return hook.CallerPrintLevels //在这些Levels上生效
+	return hook.CallerPrintLevels // 在这些Levels上生效
 }
 
-//得到日志切割的输出对象
+// GetWriter 得到日志切割的输出对象
 func GetWriter(pathLogFile string, logFileCount uint) (*rotatelogs.RotateLogs, error) {
 	var writer *rotatelogs.RotateLogs
 	var err error
 	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
 		writer, err = rotatelogs.New(
-			pathLogFile+".%Y%m%d%H",                                 //日志文件后缀：年月日时
-			rotatelogs.WithLinkName(pathLogFile),                    //为当前正在输出的日志文件建立软连接
-			rotatelogs.WithRotationCount(logFileCount),              //日志文件保存的个数(包括当前正在输出的日志)
-			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), //设置日志分割的时间(隔多久分割一次)
+			pathLogFile+".%Y%m%d%H",                                 // 日志文件后缀：年月日时
+			rotatelogs.WithLinkName(pathLogFile),                    // 为当前正在输出的日志文件建立软连接
+			rotatelogs.WithRotationCount(logFileCount),              // 日志文件保存的个数(包括当前正在输出的日志)
+			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), // 设置日志分割的时间(隔多久分割一次)
 		)
 	} else if runtime.GOOS == "windows" {
 		writer, err = rotatelogs.New(
-			pathLogFile+".%Y%m%d%H", //日志文件后缀：年月日时
-			//rotatelogs.WithLinkName(pathLogFile),                    //rotatelogs对win10支持不友好，创建软链接会报错
-			rotatelogs.WithRotationCount(logFileCount),              //日志文件保存的个数(包括当前正在输出的日志)
-			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), //设置日志分割的时间(隔多久分割一次)
+			pathLogFile+".%Y%m%d%H", // 日志文件后缀：年月日时
+			// rotatelogs.WithLinkName(pathLogFile),                    //rotatelogs对win10支持不友好，创建软链接会报错
+			rotatelogs.WithRotationCount(logFileCount),              // 日志文件保存的个数(包括当前正在输出的日志)
+			rotatelogs.WithRotationTime(time.Duration(1)*time.Hour), // 设置日志分割的时间(隔多久分割一次)
 		)
 	}
 
